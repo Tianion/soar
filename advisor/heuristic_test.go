@@ -898,6 +898,8 @@ func TestRuleUpdateSetAnd(t *testing.T) {
 			"update table1 set a = ( select a from table2 where b=1 and c=2) and b=1 where d=2",
 		},
 		{
+			"update tbl set name = 'xx and xx' where id = 1",
+			"update tbl set andname = 'xx and xx' where id = 1",
 			"update tbl set col = 1 ,cl = 2 where col=3;",
 			// https://github.com/XiaoMi/soar/issues/226
 			"update table1 set a = ( select a from table2 where b=1 and c=2), b=1, c=2 where d=2",
@@ -1690,6 +1692,7 @@ func TestRuleStringConcatenation(t *testing.T) {
 	}
 	common.Log.Debug("Exiting function: %s", common.GetFunctionName())
 }
+
 // FUN.004
 func TestRuleSysdate(t *testing.T) {
 	common.Log.Debug("Entering function: %s", common.GetFunctionName())

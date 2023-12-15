@@ -1198,7 +1198,7 @@ func (q *Query4Audit) RuleUpdateSetAnd() Rule {
 			switch c.Expr.(type) {
 			case *sqlparser.Subquery:
 			default:
-				if strings.Contains(sqlparser.String(c), " and ") {
+				if matchF(sqlparser.String(c), "and") {
 					rule = HeuristicRules["RES.005"]
 				}
 			}
@@ -1983,50 +1983,53 @@ func (q *Query4Audit) RuleNullUsage() Rule {
 	return rule
 }
 
+func matchF(src string, p string) bool {
+	// 状态：进入下一状态要匹配的字符
+	path := map[int]rune{
+		-1: '\'', // 特殊状态，左侧有单引号，等待匹配单引号
+		0:  ' ',  // 初始态
+	}
+	index := 1
+	for _, c := range p {
+		path[index] = c
+		index += 1
+	}
+	path[index] = ' ' // 结束状态
+	status := 0
+	skip := false
+	for _, c := range src {
+		if skip {
+			skip = false
+			continue
+		}
+		switch c {
+		case '\\':
+			skip = true
+		case path[status]:
+			status += 1 // next status
+		case '\'':
+			status = -1
+		default:
+			// 碰到其他字符，如果status = -1，说明在引号中间，保持不变
+			if status != -1 {
+				status = 0
+			}
+		}
+		if status == index {
+			return true
+		}
+	}
+	return false
+}
+
 // RuleStringConcatenation FUN.003
 func (q *Query4Audit) RuleStringConcatenation() Rule {
 	var rule = q.RuleOK()
-	// 匹配 or 关键字
-	matchF := func(s string) bool {
-		// 状态：进入下一状态要匹配的字符
-		path := map[int]rune{
-			-1: '\'', // 特殊状态，左侧有单引号，等待匹配单引号
-			0:  ' ',  // 初始态
-			1:  'o',
-			2:  'r',
-			3:  ' ',
-		}
-		status := 0
-		skip := false
-		for _, c := range s {
-			if skip {
-				skip = false
-				continue
-			}
-			switch c {
-			case '\\':
-				skip = true
-			case path[status]:
-				status += 1 // next status
-			case '\'':
-				status = -1
-			default:
-				// 碰到其他字符，如果status = -1，说明在引号中间，保持不变
-				if status != -1 {
-					status = 0
-				}
-			}
-			if status == 4 {
-				return true
-			}
-		}
-		return false
-	}
 	err := sqlparser.Walk(func(node sqlparser.SQLNode) (kontinue bool, err error) {
 		switch n := node.(type) {
 		case *sqlparser.Select:
 			for _, expr := range n.SelectExprs {
-				if matchF(sqlparser.String(expr)) {
+				if matchF(sqlparser.String(expr), "or") {
 					rule = HeuristicRules["FUN.003"]
 					return false, nil
 				}
